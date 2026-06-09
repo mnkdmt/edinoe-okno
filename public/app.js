@@ -1,3 +1,4 @@
+// Маска телефона +7 (___) ___-__-__
 document.querySelectorAll('input[name="phone"]').forEach((inp) => {
   const format = (digits) => {
     let d = digits.replace(/\D/g, '');
@@ -13,4 +14,12 @@ document.querySelectorAll('input[name="phone"]').forEach((inp) => {
   };
   inp.addEventListener('input', () => { inp.value = format(inp.value); });
   inp.addEventListener('focus', () => { if (!inp.value) inp.value = '+7 ('; });
+});
+
+// Защита от двойной отправки: после валидного сабмита кнопка гаснет
+document.querySelectorAll('form').forEach((form) => {
+  form.addEventListener('submit', () => {
+    const btn = form.querySelector('button[type="submit"], button:not([type])');
+    if (btn) setTimeout(() => { btn.disabled = true; }, 0);
+  });
 });

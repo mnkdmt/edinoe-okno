@@ -33,19 +33,29 @@ export function createApp(db, config) {
     res.send(V.officialPage(topic, { full_name: topic.full_name, position: topic.position }));
   });
 
+  // Свободные слоты руководителя на конкретную дату (с учётом прошедшего времени,
+  // занятых записей и закрытых слотов).
+  const slotsForDate = (officialId, date) => {
+    const s = getSettings();
+    let times = slotTimes(s);
+    if (date === today()) times = times.filter(t => t > nowHM());
+    const taken = db.prepare(`SELECT time FROM bookings WHERE official_id=? AND date=? AND status!='cancelled'`)
+      .all(officialId, date).map(r => r.time);
+    const blocked = db.prepare(`SELECT time FROM blocked_slots WHERE official_id=? AND date=?`)
+      .all(officialId, date).map(r => r.time);
+    return availableSlots(times, taken, blocked);
+  };
+
   app.get('/tema/:slug/vremya', (req, res) => {
     const topic = getTopic(req.params.slug);
     if (!topic) return notFound(res);
     const s = getSettings();
     const dates = upcomingDates(s.weekday, today(), s.weeks_ahead);
-    const selectedDate = dates.includes(req.query.date) ? req.query.date : dates[0];
-    let times = slotTimes(s);
-    if (selectedDate === today()) times = times.filter(t => t > nowHM());
-    const taken = db.prepare(`SELECT time FROM bookings WHERE official_id=? AND date=? AND status!='cancelled'`)
-      .all(topic.official_id, selectedDate).map(r => r.time);
-    const blocked = db.prepare(`SELECT time FROM blocked_slots WHERE official_id=? AND date=?`)
-      .all(topic.official_id, selectedDate).map(r => r.time);
-    res.send(V.slotsPage(topic, dates, selectedDate, availableSlots(times, taken, blocked)));
+    // По умолчанию — первый день со свободными слотами (а не просто сегодня).
+    const selectedDate = dates.includes(req.query.date)
+      ? req.query.date
+      : (dates.find(d => slotsForDate(topic.official_id, d).length > 0) || dates[0]);
+    res.send(V.slotsPage(topic, dates, selectedDate, slotsForDate(topic.official_id, selectedDate)));
   });
 
   app.get('/tema/:slug/forma', (req, res) => {

@@ -61,6 +61,25 @@ test('занятый слот возвращает форму с ошибкой'
   a.stop();
 });
 
+test('забронированные слоты исчезают со страницы выбора времени', async () => {
+  const a = await startApp();
+  const page = await (await fetch(a.base + '/tema/zhkh/vremya')).text();
+  const dates = [...new Set([...page.matchAll(/date=(\d{4}-\d{2}-\d{2})/g)].map(m => m[1]))];
+  const target = dates[1]; // второй ближайший вторник — гарантированно будущий, все 5 слотов
+  const slotPage = await (await fetch(a.base + '/tema/zhkh/vremya?date=' + target)).text();
+  const times = [...new Set([...slotPage.matchAll(/time=(\d{2}:\d{2})/g)].map(m => m[1]))];
+  assert.equal(times.length, 5);
+  for (let i = 0; i < times.length; i++) {
+    const r = await fetch(a.base + '/zapis', { method:'POST', redirect:'manual',
+      body: new URLSearchParams({ slug:'zhkh', date:target, time:times[i],
+        full_name:'Житель'+i, phone:'+790500001'+String(i).padStart(2,'0'), question:'вопрос' }) });
+    assert.equal(r.status, 302, 'слот ' + times[i] + ' должен забронироваться');
+  }
+  const after = await (await fetch(a.base + '/tema/zhkh/vremya?date=' + target)).text();
+  assert.match(after, /свободного времени нет/);
+  a.stop();
+});
+
 test('админка без входа редиректит на форму входа', async () => {
   const a = await startApp();
   const res = await fetch(a.base + '/admin', { redirect:'manual' });

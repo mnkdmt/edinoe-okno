@@ -5,12 +5,18 @@ export class BookingError extends Error {
 }
 
 const STATUSES = ['new', 'confirmed', 'cancelled'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function createBooking(db, input, today = formatDate(new Date())) {
   const { officialId, date, time, fullName, phone, question } = input;
 
   if (!fullName?.trim() || !phone?.trim() || !question?.trim())
     throw new BookingError('invalid', 'Заполните все поля.');
+
+  // Почта по желанию: пустую принимаем, заполненную проверяем на формат.
+  const email = input.email?.trim() || null;
+  if (email && !EMAIL_RE.test(email))
+    throw new BookingError('invalid', 'Проверьте адрес почты — похоже, в нём опечатка.');
 
   const official = db.prepare('SELECT id FROM officials WHERE id=? AND active=1').get(officialId);
   if (!official) throw new BookingError('invalid', 'Руководитель не найден.');
@@ -25,9 +31,9 @@ export function createBooking(db, input, today = formatDate(new Date())) {
   if (blocked) throw new BookingError('slot_taken', 'Этот слот закрыт. Выберите другое время.');
 
   try {
-    const info = db.prepare(`INSERT INTO bookings(official_id,date,time,full_name,phone,question,status,created_at)
-      VALUES(?,?,?,?,?,?, 'new', ?)`)
-      .run(officialId, date, time, fullName.trim(), phone.trim(), question.trim(), new Date().toISOString());
+    const info = db.prepare(`INSERT INTO bookings(official_id,date,time,full_name,phone,email,question,status,created_at)
+      VALUES(?,?,?,?,?,?,?, 'new', ?)`)
+      .run(officialId, date, time, fullName.trim(), phone.trim(), email, question.trim(), new Date().toISOString());
     return { id: info.lastInsertRowid };
   } catch (e) {
     if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') {

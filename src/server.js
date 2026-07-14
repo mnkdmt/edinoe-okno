@@ -9,6 +9,9 @@ export function createApp(db, config) {
   app.use(express.urlencoded({ extended: false }));
   app.use(express.static('public'));
 
+  // Почтовик; по умолчанию — заглушка (ничего не отправляет).
+  const mailer = config.mailer || { sendBookingConfirmation: async () => ({ status: 'noop' }) };
+
   const getSettings = () => db.prepare('SELECT * FROM settings WHERE id=1').get();
   const getTopics = () => db.prepare(`SELECT t.slug, t.emoji, t.title, t.subtitle
       FROM topics t WHERE t.active=1 ORDER BY t.sort_order`).all();
@@ -65,16 +68,21 @@ export function createApp(db, config) {
   });
 
   app.post('/zapis', (req, res) => {
-    const { slug, date, time, full_name, phone, question } = req.body;
+    const { slug, date, time, full_name, phone, email, question } = req.body;
     const topic = getTopic(slug);
     if (!topic) return notFound(res);
     try {
       const { id } = createBooking(db, {
-        officialId: topic.official_id, date, time, fullName: full_name, phone, question });
+        officialId: topic.official_id, date, time, fullName: full_name, phone, email, question });
+      // Письмо-подтверждение (по желанию, не блокирует запись).
+      const b = db.prepare('SELECT * FROM bookings WHERE id=?').get(id);
+      const o = db.prepare('SELECT * FROM officials WHERE id=?').get(b.official_id);
+      Promise.resolve(mailer.sendBookingConfirmation(b, o))
+        .catch(err => console.error('[mail] ошибка отправки:', err?.message || err));
       res.redirect('/gotovo/' + id);
     } catch (e) {
       if (e instanceof BookingError)
-        return res.send(V.formPage(topic, date, time, { full_name, phone, question }, e.message));
+        return res.send(V.formPage(topic, date, time, { full_name, phone, email, question }, e.message));
       throw e;
     }
   });

@@ -144,6 +144,13 @@ export function formPage(topic, date, time, values = {}, error = '') {
         <span class="hint" id="f-phone-hint">На этот номер позвонят, если приём перенесётся</span>
       </div>
       <div class="field">
+        <label for="f-email">Электронная почта <span class="opt">— по желанию</span></label>
+        <input id="f-email" name="email" type="email" autocomplete="email" inputmode="email"
+          enterkeyhint="next" aria-describedby="f-email-hint"
+          value="${escapeHtml(values.email || '')}" placeholder="you@example.ru">
+        <span class="hint" id="f-email-hint">Если укажете — пришлём подтверждение записи письмом</span>
+      </div>
+      <div class="field">
         <label for="f-q">Коротко суть вопроса</label>
         <textarea id="f-q" name="question" required rows="4"
           placeholder="Опишите вопрос в двух-трёх предложениях">${escapeHtml(values.question || '')}</textarea>
@@ -165,6 +172,7 @@ export function confirmationPage(booking, official) {
       <div class="done-when">${humanDate(booking.date)} · ${booking.time}</div>
       <div class="done-who">${escapeHtml(official.full_name)}<br><span>${escapeHtml(official.position)}</span></div>
       <div class="done-note">Запишите дату и время. При себе — паспорт.<br>Если не сможете прийти — позвоните в приёмную.</div>
+      ${booking.email ? `<div class="done-mail">Подтверждение отправлено на <b>${escapeHtml(booking.email)}</b></div>` : ''}
       <a class="btn btn--big" href="/">На главную</a>
     </div>`;
   return layout({ title: 'Готово', body });

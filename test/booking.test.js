@@ -60,3 +60,21 @@ test('пустые поля отклоняются', () => {
   assert.throws(() => createBooking(db, { ...valid, fullName:'  ' }, TODAY),
     e => e instanceof BookingError && e.code === 'invalid');
 });
+
+test('почта сохраняется, если указана', () => {
+  const db = setup();
+  const { id } = createBooking(db, { ...valid, email:'ivan@mail.ru' }, TODAY);
+  assert.equal(db.prepare('SELECT email FROM bookings WHERE id=?').get(id).email, 'ivan@mail.ru');
+});
+
+test('без почты запись создаётся — она по желанию', () => {
+  const db = setup();
+  const { id } = createBooking(db, valid, TODAY);
+  assert.equal(db.prepare('SELECT email FROM bookings WHERE id=?').get(id).email, null);
+});
+
+test('кривая почта отклоняется', () => {
+  const db = setup();
+  assert.throws(() => createBooking(db, { ...valid, email:'не-почта' }, TODAY),
+    e => e instanceof BookingError && e.code === 'invalid');
+});

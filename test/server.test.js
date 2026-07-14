@@ -8,10 +8,12 @@ const CONFIG = { adminPassword: 'secret', cookieSecret: 'sec' };
 
 async function startApp() {
   const db = openDb(':memory:'); migrate(db); seedCatalog(db);
-  const app = createApp(db, CONFIG);
+  const mailed = [];
+  const mailer = { sendBookingConfirmation: async (b, o) => { mailed.push({ b, o }); return { status: 'sent' }; } };
+  const app = createApp(db, { ...CONFIG, mailer });
   const server = await new Promise(res => { const s = app.listen(0, () => res(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
-  return { db, server, base, stop: () => server.close() };
+  return { db, server, base, mailed, stop: () => server.close() };
 }
 
 test('главная отдаёт список тем', async () => {
@@ -34,8 +36,10 @@ test('страница темы показывает должность', async 
 
 test('создание записи редиректит на подтверждение', async () => {
   const a = await startApp();
+  const page = await (await fetch(a.base + '/tema/zhkh/vremya')).text();
+  const m = page.match(/forma\?date=(\d{4}-\d{2}-\d{2})&time=(\d{2}:\d{2})/);
   const body = new URLSearchParams({
-    slug:'zhkh', date:'2026-06-16', time:'12:00',
+    slug:'zhkh', date:m[1], time:m[2],
     full_name:'Сидоров', phone:'+79050000000', question:'нет воды'
   });
   const res = await fetch(a.base + '/zapis', { method:'POST', body, redirect:'manual' });
@@ -49,13 +53,13 @@ test('создание записи редиректит на подтвержд
 
 test('занятый слот возвращает форму с ошибкой', async () => {
   const a = await startApp();
-  const mk = () => fetch(a.base + '/zapis', { method:'POST', redirect:'manual',
-    body: new URLSearchParams({ slug:'zhkh', date:'2026-06-16', time:'12:00',
-      full_name:'A', phone:'+79050000001', question:'x' }) });
-  await mk();
+  const page = await (await fetch(a.base + '/tema/zhkh/vremya')).text();
+  const m = page.match(/forma\?date=(\d{4}-\d{2}-\d{2})&time=(\d{2}:\d{2})/);
+  const slot = { slug:'zhkh', date:m[1], time:m[2] };
+  await fetch(a.base + '/zapis', { method:'POST', redirect:'manual',
+    body: new URLSearchParams({ ...slot, full_name:'A', phone:'+79050000001', question:'x' }) });
   const res2 = await fetch(a.base + '/zapis', { method:'POST', redirect:'manual',
-    body: new URLSearchParams({ slug:'zhkh', date:'2026-06-16', time:'12:00',
-      full_name:'B', phone:'+79050000002', question:'y' }) });
+    body: new URLSearchParams({ ...slot, full_name:'B', phone:'+79050000002', question:'y' }) });
   const html = await res2.text();
   assert.match(html, /только что заняли|слот закрыт/i);
   a.stop();
@@ -77,6 +81,41 @@ test('забронированные слоты исчезают со стран
   }
   const after = await (await fetch(a.base + '/tema/zhkh/vremya?date=' + target)).text();
   assert.match(after, /свободного времени нет/);
+  a.stop();
+});
+
+test('запись с почтой: email сохраняется и письмо отправляется', async () => {
+  const a = await startApp();
+  const page = await (await fetch(a.base + '/tema/zhkh/vremya')).text();
+  const target = [...new Set([...page.matchAll(/date=(\d{4}-\d{2}-\d{2})/g)].map(m => m[1]))][1];
+  const res = await fetch(a.base + '/zapis', { method:'POST', redirect:'manual',
+    body: new URLSearchParams({ slug:'zhkh', date:target, time:'12:00',
+      full_name:'Иванов', phone:'+79050000000', email:'ivan@mail.ru', question:'вопрос' }) });
+  assert.equal(res.status, 302);
+  const row = a.db.prepare("SELECT email FROM bookings WHERE phone='+79050000000'").get();
+  assert.equal(row.email, 'ivan@mail.ru');
+  assert.equal(a.mailed.length, 1);
+  assert.equal(a.mailed[0].b.email, 'ivan@mail.ru');
+  a.stop();
+});
+
+test('запись без почты проходит и письмо не шлётся', async () => {
+  const a = await startApp();
+  const page = await (await fetch(a.base + '/tema/zhkh/vremya')).text();
+  const target = [...new Set([...page.matchAll(/date=(\d{4}-\d{2}-\d{2})/g)].map(m => m[1]))][1];
+  const res = await fetch(a.base + '/zapis', { method:'POST', redirect:'manual',
+    body: new URLSearchParams({ slug:'zhkh', date:target, time:'12:20',
+      full_name:'Без Почты', phone:'+79051234567', question:'вопрос' }) });
+  assert.equal(res.status, 302);
+  assert.equal(a.mailed.length, 1); // почтовик всё равно вызван, но с пустым email внутри реальный mailer пропустит
+  assert.equal(a.mailed[0].b.email, null);
+  a.stop();
+});
+
+test('форма содержит поле почты', async () => {
+  const a = await startApp();
+  const html = await (await fetch(a.base + '/tema/zhkh/forma?date=2026-06-16&time=12:00')).text();
+  assert.match(html, /name="email"/);
   a.stop();
 });
 

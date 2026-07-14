@@ -188,6 +188,7 @@ body {
 .form { display: flex; flex-direction: column; gap: 18px; max-width: 540px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-weight: 600; font-size: 15px; }
+.opt { font-weight: 400; color: var(--ink-3); }
 .field input, .field textarea, .field select {
   font: inherit; font-size: 17px; padding: 13px 14px; min-height: 52px;
   border: 1px solid #C7CFD9; border-radius: 11px; background: var(--surface); color: var(--ink);
@@ -216,6 +217,7 @@ body {
 .done-who { margin-top: 14px; font-weight: 600; }
 .done-who span { font-weight: 400; color: var(--ink-2); }
 .done-note { color: var(--ink-2); margin-top: 18px; }
+.done-mail { margin-top: 14px; font-size: 14.5px; color: var(--green); background: var(--green-tint); border-radius: 10px; padding: 10px 14px; display: inline-block; }
 .done .btn { width: auto; min-width: 220px; }
 
 /* Вход */

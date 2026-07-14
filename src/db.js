@@ -47,6 +47,7 @@ export function migrate(db) {
       time TEXT NOT NULL,
       full_name TEXT NOT NULL,
       phone TEXT NOT NULL,
+      email TEXT,
       question TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'new',
       created_at TEXT NOT NULL
@@ -56,6 +57,10 @@ export function migrate(db) {
     CREATE UNIQUE INDEX IF NOT EXISTS uniq_phone_time
       ON bookings(phone, date, time) WHERE status != 'cancelled';
   `);
+  // Миграция уже существующих баз: добавить колонку email, если её нет.
+  const bookingCols = db.prepare('PRAGMA table_info(bookings)').all().map(c => c.name);
+  if (!bookingCols.includes('email')) db.exec('ALTER TABLE bookings ADD COLUMN email TEXT');
+
   const hasSettings = db.prepare('SELECT 1 FROM settings WHERE id=1').get();
   if (!hasSettings) {
     db.prepare(`INSERT INTO settings(id,weekday,start_time,slot_minutes,slot_count,weeks_ahead)

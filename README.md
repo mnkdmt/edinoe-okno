@@ -2,7 +2,17 @@
 
 Сайт записи жителей на личный приём к руководителям администрации.
 
-## Запуск
+## Живой сайт на Render (в один клик)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mnkdmt/edinoe-okno)
+
+Кнопка откроет Render, прочитает `render.yaml` и развернёт сайт. После сборки
+адрес будет вида `https://edinoe-okno.onrender.com`, админка — `/admin/vhod`.
+
+Бесплатный тариф: сервис засыпает при простое (первое открытие ~30–50 сек), база
+SQLite сбрасывается при перезапуске. Для постоянной работы — платный тариф с диском.
+
+## Запуск (локально)
 
     npm install
     npm start

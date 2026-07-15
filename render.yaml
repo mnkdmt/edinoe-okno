@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: edinoe-okno
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        value: admin
